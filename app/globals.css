@@ -70,3 +70,36 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  /* Mobile-first responsive utilities */
+  .mobile-safe-padding {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  .mobile-safe-text {
+    @apply text-sm sm:text-base lg:text-lg;
+  }
+  
+  .mobile-touch-target {
+    @apply min-h-[44px] min-w-[44px] sm:min-h-[48px] sm:min-w-[48px];
+  }
+  
+  .mobile-responsive-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6;
+  }
+  
+  .mobile-scrollable {
+    @apply overflow-x-auto scrollbar-hide;
+  }
+  
+  /* Prevent horizontal scrolling on mobile */
+  .mobile-container {
+    @apply max-w-full overflow-x-hidden;
+  }
+  
+  /* Better mobile form inputs */
+  .mobile-input {
+    @apply text-base sm:text-sm; /* Prevents zoom on iOS */
+  }
+}

@@ -151,28 +151,29 @@ function CodeView() {
 
     return (
         <div className='relative'>
-            <div className='bg-[#181818] w-full p-2 border'>
-                <div className='flex items-center justify-between'>
+            <div className='bg-[#181818] w-full p-2 sm:p-3 border rounded-t-lg'>
+                <div className='flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0'>
                     <div className='flex items-center flex-wrap shrink-0 bg-black p-1 justify-center
-                    w-[140px] gap-3 rounded-full'>
+                    w-full sm:w-[140px] gap-2 sm:gap-3 rounded-full'>
                         <h2 onClick={() => setActiveTab('code')}
-                            className={`text-sm cursor-pointer 
-                        ${activeTab == 'code' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
+                            className={`text-xs sm:text-sm cursor-pointer px-2 py-1 rounded-full transition-all
+                        ${activeTab == 'code' ? 'text-blue-500 bg-blue-500 bg-opacity-25' : 'hover:bg-gray-700'}`}>
                             Code</h2>
 
                         <h2 onClick={() => setActiveTab('preview')}
-                            className={`text-sm cursor-pointer 
-                        ${activeTab == 'preview' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
+                            className={`text-xs sm:text-sm cursor-pointer px-2 py-1 rounded-full transition-all
+                        ${activeTab == 'preview' ? 'text-blue-500 bg-blue-500 bg-opacity-25' : 'hover:bg-gray-700'}`}>
                             Preview</h2>
                     </div>
                     
                     {/* Download Button */}
                     <button
                         onClick={downloadFiles}
-                        className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full transition-colors duration-200"
+                        className="flex items-center gap-1 sm:gap-2 bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-full transition-colors duration-200 text-xs sm:text-sm mobile-touch-target"
                     >
-                        <Download className="h-4 w-4" />
-                        <span>Download Files</span>
+                        <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <span className="hidden sm:inline">Download Files</span>
+                        <span className="sm:hidden">Download</span>
                     </button>
                 </div>
             </div>
@@ -196,9 +197,9 @@ function CodeView() {
                 <div className="relative">
                     <SandpackLayout>
                         {activeTab=='code'?<>
-                            <SandpackFileExplorer style={{ height: '80vh' }} />
+                            <SandpackFileExplorer style={{ height: '50vh', minHeight: '400px' }} />
                             <SandpackCodeEditor 
-                            style={{ height: '80vh' }}
+                            style={{ height: '50vh', minHeight: '400px' }}
                             showTabs
                             showLineNumbers
                             showInlineErrors
@@ -206,7 +207,7 @@ function CodeView() {
                         </>:
                         <>
                             <SandpackPreview 
-                                style={{ height: '80vh' }} 
+                                style={{ height: '50vh', minHeight: '400px' }} 
                                 showNavigator={true}
                                 showOpenInCodeSandbox={false}
                                 showRefreshButton={true}
