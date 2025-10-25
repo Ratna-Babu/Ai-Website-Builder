@@ -4,42 +4,57 @@ import { ArrowRight, Link, Loader2Icon, Send } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import { useConvex } from 'convex/react';
 import { useParams } from 'next/navigation';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState, useCallback, memo } from 'react';
 import { useMutation } from 'convex/react';
 import Prompt from '@/data/Prompt';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 
+const MessageItem = memo(({ msg, index }) => (
+    <div
+        className={`p-4 rounded-lg ${
+            msg.role === 'user' 
+                ? 'bg-gray-800/50 border border-gray-700' 
+                : 'bg-gray-800/30 border border-gray-700'
+        }`}
+    >
+        <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-lg ${
+                msg.role === 'user' 
+                    ? 'bg-blue-500/20 text-blue-400' 
+                    : 'bg-purple-500/20 text-purple-400'
+            }`}>
+                {msg.role === 'user' ? 'You' : 'AI'}
+            </div>
+            <ReactMarkdown className="prose prose-invert flex-1 overflow-auto">
+                {msg.content}
+            </ReactMarkdown>
+        </div>
+    </div>
+));
+
+MessageItem.displayName = 'MessageItem';
+
 function ChatView() {
     const { id } = useParams();
     const convex = useConvex();
     const { messages, setMessages } = useContext(MessagesContext);
-    const [userInput, setUserInput] = useState();
+    const [userInput, setUserInput] = useState('');
     const [loading, setLoading] = useState(false);
     const UpdateMessages = useMutation(api.workspace.UpdateWorkspace);
 
-    useEffect(() => {
-        id && GetWorkSpaceData();
-    }, [id])
-
-    const GetWorkSpaceData = async () => {
+    const GetWorkSpaceData = useCallback(async () => {
         const result = await convex.query(api.workspace.GetWorkspace, {
             workspaceId: id
         });
         setMessages(result?.messages);
-        console.log(result);
-    }
+    }, [id, convex, setMessages]);
 
     useEffect(() => {
-        if (messages?.length > 0) {
-            const role = messages[messages?.length - 1].role;
-            if (role === 'user') {
-                GetAiResponse();
-            }
-        }
-    }, [messages])
+        id && GetWorkSpaceData();
+    }, [id, GetWorkSpaceData]);
 
-    const GetAiResponse = async () => {
+    const GetAiResponse = useCallback(async () => {
         setLoading(true);
         const PROMPT = JSON.stringify(messages) + Prompt.CHAT_PROMPT;
         const result = await axios.post('/api/ai-chat', {
@@ -49,22 +64,31 @@ function ChatView() {
         const aiResp = {
             role: 'ai',
             content: result.data.result
-        }
+        };
         setMessages(prev => [...prev, aiResp]);
         await UpdateMessages({
             messages: [...messages, aiResp],
             workspaceId: id
-        })
+        });
         setLoading(false);
-    }
+    }, [messages, id, UpdateMessages, setMessages]);
 
-    const onGenerate = (input) => {
+    useEffect(() => {
+        if (messages?.length > 0) {
+            const role = messages[messages?.length - 1].role;
+            if (role === 'user') {
+                GetAiResponse();
+            }
+        }
+    }, [messages, GetAiResponse]);
+
+    const onGenerate = useCallback((input) => {
         setMessages(prev => [...prev, {
             role: 'user',
             content: input
         }]);
         setUserInput('');
-    }
+    }, [setMessages]);
 
     return (
         <div className="relative h-[85vh] flex flex-col bg-gray-900">
@@ -72,27 +96,7 @@ function ChatView() {
             <div className="flex-1 overflow-y-auto scrollbar-hide p-4">
                 <div className="max-w-4xl mx-auto space-y-4">
                     {Array.isArray(messages) && messages?.map((msg, index) => (
-                        <div
-                            key={index}
-                            className={`p-4 rounded-lg ${
-                                msg.role === 'user' 
-                                    ? 'bg-gray-800/50 border border-gray-700' 
-                                    : 'bg-gray-800/30 border border-gray-700'
-                            }`}
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${
-                                    msg.role === 'user' 
-                                        ? 'bg-blue-500/20 text-blue-400' 
-                                        : 'bg-purple-500/20 text-purple-400'
-                                }`}>
-                                    {msg.role === 'user' ? 'You' : 'AI'}
-                                </div>
-                                <ReactMarkdown className="prose prose-invert flex-1 overflow-auto">
-                                    {msg.content}
-                                </ReactMarkdown>
-                            </div>
-                        </div>
+                        <MessageItem key={index} msg={msg} index={index} />
                     ))}
                     
                     {loading && (
