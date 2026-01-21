@@ -39,9 +39,33 @@ function Hero() {
                 body: JSON.stringify({ prompt: userInput }),
             });
 
-            const data = await response.json();
-            if (data.enhancedPrompt) {
-                setUserInput(data.enhancedPrompt);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let enhancedText = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.chunk) {
+                                enhancedText += data.chunk;
+                                setUserInput(enhancedText);
+                            }
+                            if (data.done && data.enhancedPrompt) {
+                                setUserInput(data.enhancedPrompt);
+                            }
+                        } catch (e) {
+                            // Skip invalid JSON
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error('Error enhancing prompt:', error);

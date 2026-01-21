@@ -57,20 +57,68 @@ function ChatView() {
     const GetAiResponse = useCallback(async () => {
         setLoading(true);
         const PROMPT = JSON.stringify(messages) + Prompt.CHAT_PROMPT;
-        const result = await axios.post('/api/ai-chat', {
-            prompt: PROMPT
-        });
+        
+        try {
+            const response = await fetch('/api/ai-chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: PROMPT }),
+            });
 
-        const aiResp = {
-            role: 'ai',
-            content: result.data.result
-        };
-        setMessages(prev => [...prev, aiResp]);
-        await UpdateMessages({
-            messages: [...messages, aiResp],
-            workspaceId: id
-        });
-        setLoading(false);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let fullText = '';
+
+            // Add placeholder AI message for streaming
+            const aiMessageIndex = messages.length;
+            setMessages(prev => [...prev, { role: 'ai', content: '' }]);
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.chunk) {
+                                fullText += data.chunk;
+                                setMessages(prev => {
+                                    const updated = [...prev];
+                                    updated[aiMessageIndex] = { role: 'ai', content: fullText };
+                                    return updated;
+                                });
+                            }
+                            if (data.done && data.result) {
+                                fullText = data.result;
+                                setMessages(prev => {
+                                    const updated = [...prev];
+                                    updated[aiMessageIndex] = { role: 'ai', content: fullText };
+                                    return updated;
+                                });
+                            }
+                        } catch (e) {
+                            // Skip invalid JSON
+                        }
+                    }
+                }
+            }
+
+            const finalMessages = [...messages, { role: 'ai', content: fullText }];
+            await UpdateMessages({
+                messages: finalMessages,
+                workspaceId: id
+            });
+        } catch (error) {
+            console.error('Error getting AI response:', error);
+        } finally {
+            setLoading(false);
+        }
     }, [messages, id, UpdateMessages, setMessages]);
 
     useEffect(() => {

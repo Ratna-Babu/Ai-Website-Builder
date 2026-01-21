@@ -58,19 +58,56 @@ function CodeView() {
     const GenerateAiCode = useCallback(async () => {
         setLoading(true);
         const PROMPT = JSON.stringify(messages) + " " + Prompt.CODE_GEN_PROMPT;
-        const result = await axios.post('/api/gen-ai-code', {
-            prompt: PROMPT
-        });
         
-        const processedAiFiles = preprocessFiles(result.data?.files || {});
-        const mergedFiles = { ...Lookup.DEFAULT_FILE, ...processedAiFiles };
-        setFiles(mergedFiles);
+        try {
+            const response = await fetch('/api/gen-ai-code', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt: PROMPT }),
+            });
 
-        await UpdateFiles({
-            workspaceId: id,
-            files: result.data?.files
-        });
-        setLoading(false);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let finalData = null;
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.done && data.final) {
+                                finalData = data.final;
+                            }
+                        } catch (e) {
+                            // Skip invalid JSON
+                        }
+                    }
+                }
+            }
+
+            if (finalData && finalData.files) {
+                const processedAiFiles = preprocessFiles(finalData.files || {});
+                const mergedFiles = { ...Lookup.DEFAULT_FILE, ...processedAiFiles };
+                setFiles(mergedFiles);
+
+                await UpdateFiles({
+                    workspaceId: id,
+                    files: finalData.files
+                });
+            }
+        } catch (error) {
+            console.error('Error generating AI code:', error);
+        } finally {
+            setLoading(false);
+        }
     }, [messages, id, UpdateFiles, preprocessFiles]);
 
     useEffect(() => {
