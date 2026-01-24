@@ -1,37 +1,59 @@
 "use client"
 import { MessagesContext } from '@/context/MessagesContext';
-import { ArrowRight, Link, Loader2Icon, Send } from 'lucide-react';
+import { ArrowRight, Link, Loader2Icon, Send, Copy, Check } from 'lucide-react';
 import { api } from '@/convex/_generated/api';
 import { useConvex } from 'convex/react';
 import { useParams } from 'next/navigation';
 import { useContext, useEffect, useState, useCallback, memo } from 'react';
 import { useMutation } from 'convex/react';
 import Prompt from '@/data/Prompt';
-import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 
-const MessageItem = memo(({ msg, index }) => (
-    <div
-        className={`p-4 rounded-lg ${
-            msg.role === 'user' 
-                ? 'bg-gray-800/50 border border-gray-700' 
-                : 'bg-gray-800/30 border border-gray-700'
-        }`}
-    >
-        <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-lg ${
+// Memoized MessageItem to prevent unnecessary re-renders of the entire chat history
+const MessageItem = memo(({ msg, index }) => {
+    const [copied, setCopied] = useState(false);
+
+    const copyToClipboard = () => {
+        if (!msg.content) return;
+        navigator.clipboard.writeText(msg.content);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div
+            className={`p-4 rounded-lg relative group ${
                 msg.role === 'user' 
-                    ? 'bg-blue-500/20 text-blue-400' 
-                    : 'bg-purple-500/20 text-purple-400'
-            }`}>
-                {msg.role === 'user' ? 'You' : 'AI'}
+                    ? 'bg-gray-800/50 border border-gray-700' 
+                    : 'bg-gray-800/30 border border-gray-700'
+            }`}
+        >
+            <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-lg ${
+                    msg.role === 'user' 
+                        ? 'bg-blue-500/20 text-blue-400' 
+                        : 'bg-purple-500/20 text-purple-400'
+                }`}>
+                    {msg.role === 'user' ? 'You' : 'AI'}
+                </div>
+                <ReactMarkdown className="prose prose-invert flex-1 overflow-auto">
+                    {msg.content}
+                </ReactMarkdown>
             </div>
-            <ReactMarkdown className="prose prose-invert flex-1 overflow-auto">
-                {msg.content}
-            </ReactMarkdown>
+
+            {/* Copy Button for AI Messages - Added Feature */}
+            {msg.role === 'ai' && (
+                <button 
+                    onClick={copyToClipboard}
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-gray-700 rounded-md bg-gray-800 border border-gray-600"
+                    title="Copy to clipboard"
+                >
+                    {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-gray-400" />}
+                </button>
+            )}
         </div>
-    </div>
-));
+    );
+});
 
 MessageItem.displayName = 'MessageItem';
 
@@ -47,7 +69,7 @@ function ChatView() {
         const result = await convex.query(api.workspace.GetWorkspace, {
             workspaceId: id
         });
-        setMessages(result?.messages);
+        setMessages(result?.messages || []);
     }, [id, convex, setMessages]);
 
     useEffect(() => {
@@ -71,7 +93,6 @@ function ChatView() {
             const decoder = new TextDecoder();
             let fullText = '';
 
-            // Add placeholder AI message for streaming
             const aiMessageIndex = messages.length;
             setMessages(prev => [...prev, { role: 'ai', content: '' }]);
 
@@ -123,14 +144,15 @@ function ChatView() {
 
     useEffect(() => {
         if (messages?.length > 0) {
-            const role = messages[messages?.length - 1].role;
-            if (role === 'user') {
+            const lastMessage = messages[messages.length - 1];
+            if (lastMessage.role === 'user') {
                 GetAiResponse();
             }
         }
     }, [messages, GetAiResponse]);
 
     const onGenerate = useCallback((input) => {
+        if (!input.trim()) return;
         setMessages(prev => [...prev, {
             role: 'user',
             content: input
@@ -140,10 +162,10 @@ function ChatView() {
 
     return (
         <div className="relative h-[85vh] flex flex-col bg-gray-900">
-            {/* Chat Messages */}
+            {/* Chat Messages Area */}
             <div className="flex-1 overflow-y-auto scrollbar-hide p-4">
                 <div className="max-w-4xl mx-auto space-y-4">
-                    {Array.isArray(messages) && messages?.map((msg, index) => (
+                    {Array.isArray(messages) && messages.map((msg, index) => (
                         <MessageItem key={index} msg={msg} index={index} />
                     ))}
                     
@@ -167,9 +189,15 @@ function ChatView() {
                                 placeholder="Type your message here..."
                                 value={userInput}
                                 onChange={(event) => setUserInput(event.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        onGenerate(userInput);
+                                    }
+                                }}
                                 className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 resize-none h-32"
                             />
-                            {userInput && (
+                            {userInput.trim() && (
                                 <button
                                     onClick={() => onGenerate(userInput)}
                                     className="flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-xl px-4 transition-all duration-200"
@@ -179,7 +207,7 @@ function ChatView() {
                             )}
                         </div>
                         <div className="flex justify-end mt-3">
-                            <Link className="h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors duration-200" />
+                            <Link className="h-5 w-5 text-gray-400 hover:text-gray-300 transition-colors duration-200 cursor-pointer" />
                         </div>
                     </div>
                 </div>
